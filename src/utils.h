@@ -47,20 +47,6 @@ double PointRange(const PointT &point) {
   return PointRange(point.x, point.y, point.z);
 }
 
-/**
- * @brief Convert altitude to row (beam id)
- * @param altitude
- * @param n_beams number of total beams
- * @param angle_range range of beam angles
- * @return n in [0, n_rings]
- */
-static constexpr int Altitude2Row(double altitude, int n_beams, double lower,
-                                  double upper) {
-  const auto factor = (n_beams - 1) / (upper - lower);
-  // int conversion round to zero so add 0.5
-  return static_cast<int>((altitude - lower) * factor + 0.5);
-}
-
 /// Degree from Radian
 static constexpr double Deg_Rad(double rad) { return rad * 180 / M_PI; }
 

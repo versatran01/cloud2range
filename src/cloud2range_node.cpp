@@ -8,6 +8,8 @@
 
 namespace cloud2range {
 
+using PointT = pcl::PointXYZI;
+
 class Cloud2RangeNode {
  public:
   explicit Cloud2RangeNode(const ros::NodeHandle& pnh);
@@ -16,8 +18,8 @@ class Cloud2RangeNode {
 
  private:
   ros::NodeHandle pnh_;
-  image_transport::ImageTransport it_;
   ros::Subscriber sub_cloud_;
+  image_transport::ImageTransport it_;
   image_transport::CameraPublisher pub_camera_;
 
   int n_beams_;
@@ -32,9 +34,6 @@ class Cloud2RangeNode {
   // We are going to use camera info to store all the above params for decoding
   sensor_msgs::CameraInfo cinfo_;
 };
-
-using PointT = pcl::PointXYZI;
-using CloudT = pcl::PointCloud<PointT>;
 
 Cloud2RangeNode::Cloud2RangeNode(const ros::NodeHandle& pnh)
     : pnh_(pnh), it_(pnh) {
@@ -56,6 +55,9 @@ Cloud2RangeNode::Cloud2RangeNode(const ros::NodeHandle& pnh)
   max_range_ = pnh_.param("max_range", 0.0);
   ROS_ASSERT(max_range_ > 0.0);
 
+  const auto model = pnh_.param<std::string>("model", "");
+  ROS_INFO("lidar model: %s", model.c_str());
+
   ROS_INFO("n_beams: %d, rpm: %d, angle(deg): [%0.2f, %0.2f], max range: %0.2f",
            n_beams_, rpm_, Deg_Rad(min_angle_), Deg_Rad(max_angle_),
            max_range_);
@@ -69,14 +71,21 @@ Cloud2RangeNode::Cloud2RangeNode(const ros::NodeHandle& pnh)
            Deg_Rad(d_azimuth_), Deg_Rad(d_altitude_));
 
   // Fill in cinfo
+  cinfo_.height = n_beams_;
+  cinfo_.width = n_cols_;
+  cinfo_.distortion_model = model;
+  cinfo_.K[0] = min_angle_;
+  cinfo_.K[1] = max_angle_;
+  cinfo_.K[2] = max_range_;
+  cinfo_.K[3] = d_azimuth_;
+  cinfo_.K[4] = d_altitude_;
 }
 
 void Cloud2RangeNode::CloudCb(
     const sensor_msgs::PointCloud2ConstPtr& cloud_msg) {
   // convert to point cloud
-  CloudT cloud;
+  pcl::PointCloud<PointT> cloud;
   pcl::fromROSMsg(*cloud_msg, cloud);
-  ROS_INFO("number of points %zu", cloud.size());
 
   cv::Mat range_image = cv::Mat::zeros(n_beams_, n_cols_, CV_16UC1);
 
@@ -98,6 +107,9 @@ void Cloud2RangeNode::CloudCb(
     range_image.at<ushort>(row, col) =
         std::min(range / max_range_, 1.0) * std::numeric_limits<ushort>::max();
   }
+
+  ROS_DEBUG("num points %zu, num pixels %d", cloud.size(),
+            cv::countNonZero(range_image));
 
   // update header
   cinfo_.header = cloud_msg->header;

@@ -1,42 +1,41 @@
 #include "utils.h"
 
 #include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_ros/point_cloud.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/Image.h>
 
 namespace cloud2range {
+
+using PointT = pcl::PointXYZ;
 
 class Range2CloudNode {
  public:
   explicit Range2CloudNode(const ros::NodeHandle& pnh);
 
-  void ImageCb(const sensor_msgs::ImageConstPtr& image_msg);
+  void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
+                const sensor_msgs::CameraInfoConstPtr& cinfo_msg);
 
  private:
   ros::NodeHandle pnh_;
-  ros::Subscriber sub_image_;
   ros::Publisher pub_cloud_;
-
-  size_t rpm_;
-  double max_range_;
-  double min_angle_, max_angle_;
+  image_transport::ImageTransport it_;
+  image_transport::CameraSubscriber sub_camera_;
 };
 
-using PointT = pcl::PointXYZ;
-using CloudT = pcl::PointCloud<PointT>;
-
-Range2CloudNode::Range2CloudNode(const ros::NodeHandle& pnh) : pnh_(pnh) {
-  sub_image_ =
-      pnh_.subscribe("range/image", 1, &Range2CloudNode::ImageCb, this);
-  pub_cloud_ = pnh_.advertise<CloudT>("cloud2", 1);
-
-  max_range_ = 100;
-  min_angle_ = Rad_Deg(-15);
-  max_angle_ = Rad_Deg(15);
-  rpm_ = 600;
+Range2CloudNode::Range2CloudNode(const ros::NodeHandle& pnh)
+    : pnh_(pnh), it_(pnh) {
+  sub_camera_ =
+      it_.subscribeCamera("range/image", 1, &Range2CloudNode::CameraCb, this);
+  pub_cloud_ = pnh_.advertise<pcl::PointCloud<PointT>>("cloud_ordered", 1);
 }
 
-void Range2CloudNode::ImageCb(const sensor_msgs::ImageConstPtr& image_msg) {
+void Range2CloudNode::CameraCb(
+    const sensor_msgs::ImageConstPtr& image_msg,
+    const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
+  // Convert to image
   cv_bridge::CvImageConstPtr cv_ptr;
   try {
     cv_ptr = cv_bridge::toCvShare(image_msg);
@@ -45,15 +44,17 @@ void Range2CloudNode::ImageCb(const sensor_msgs::ImageConstPtr& image_msg) {
     return;
   }
 
-  const auto range_image = cv_ptr->image;
-  ROS_INFO("range image %dx%d", range_image.rows, range_image.cols);
+  const cv::Mat range_image = cv_ptr->image;
 
-  const size_t n_beams = range_image.rows;
-  const double f = (n_beams - 1) / (max_angle_ - min_angle_);
-  const double delta_azimuth = Rad_Deg(2 * 60.0 / rpm_);
+  // Extract params from cinfo
+  const double min_angle = cinfo_msg->K[0];
+  //  const double max_angle = cinfo_msg->K[1];
+  const double max_range = cinfo_msg->K[2];
+  const double d_azimuth = cinfo_msg->K[3];
+  const double d_altitude = cinfo_msg->K[4];
 
   // Create a point cloud and fill in points from range image
-  CloudT cloud;
+  pcl::PointCloud<PointT> cloud;
   cloud.points.reserve(range_image.rows * range_image.cols);
 
   for (int r = 0; r < range_image.rows; ++r) {
@@ -61,15 +62,16 @@ void Range2CloudNode::ImageCb(const sensor_msgs::ImageConstPtr& image_msg) {
     for (int c = 0; c < range_image.cols; ++c) {
       const ushort range_encoded = row_ptr[c];
 
+      // skip points with 0 range
       if (range_encoded == 0) {
         continue;
       }
 
       const double range =
-          (max_range_ * range_encoded) / std::numeric_limits<ushort>::max();
+          (max_range * range_encoded) / std::numeric_limits<ushort>::max();
 
-      const auto altitude = r / f + min_angle_;
-      const auto azimuth = c * delta_azimuth;
+      const auto altitude = r * d_altitude + min_angle;
+      const auto azimuth = c * d_azimuth;
 
       PointT point;
       point.x = std::cos(altitude) * std::cos(azimuth) * range;
@@ -79,7 +81,7 @@ void Range2CloudNode::ImageCb(const sensor_msgs::ImageConstPtr& image_msg) {
     }
   }
 
-  ROS_INFO("number of points %zu", cloud.size());
+  ROS_DEBUG("num restored points %zu", cloud.size());
 
   pcl_conversions::toPCL(image_msg->header, cloud.header);
   pub_cloud_.publish(cloud);

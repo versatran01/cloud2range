@@ -6,6 +6,12 @@
     <!-- topic name of pointcloud -->
     <arg name="cloud" default="velodyne_points"/>
 
+    <arg name="debug" default="false"/>
+    <env if="$(arg debug)"
+         name="ROSCONSOLE_CONFIG_FILE"
+         value="$(find cloud2range)/launch/debug.conf"/>
+
+
     <node pkg="cloud2range" type="cloud2range_node" name="cloud2range" output="screen">
         <rosparam command="load" file="$(find cloud2range)/launch/vlp16.yaml"/>
 

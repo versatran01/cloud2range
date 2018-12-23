@@ -1,6 +1,11 @@
 <launch>
     <arg name="laser" default="/"/>
 
+    <arg name="debug" default="false"/>
+    <env if="$(arg debug)"
+         name="ROSCONSOLE_CONFIG_FILE"
+         value="$(find cloud2range)/launch/debug.conf"/>
+
     <node pkg="cloud2range" type="range2cloud_node" name="range2cloud" output="screen">
         <remap from="~range/image" to="/$(arg laser)/range/image_raw"/>
         <remap from="~range/camera_info" to="/$(arg laser)/range/camera_info"/>
