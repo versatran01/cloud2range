@@ -49,9 +49,10 @@ void Range2CloudNode::CameraCb(
   // Extract params from cinfo
   const double min_angle = cinfo_msg->K[0];
   //  const double max_angle = cinfo_msg->K[1];
-  const double max_range = cinfo_msg->K[2];
-  const double d_azimuth = cinfo_msg->K[3];
-  const double d_altitude = cinfo_msg->K[4];
+  const double min_range = cinfo_msg->K[2];
+  const double max_range = cinfo_msg->K[3];
+  const double d_azimuth = cinfo_msg->K[4];
+  const double d_altitude = cinfo_msg->K[5];
 
   // Create a point cloud and fill in points from range image
   pcl::PointCloud<PointT> cloud;
@@ -67,8 +68,10 @@ void Range2CloudNode::CameraCb(
         continue;
       }
 
+      const double range_normalized = static_cast<double>(range_encoded) /
+                                      std::numeric_limits<ushort>::max();
       const double range =
-          (max_range * range_encoded) / std::numeric_limits<ushort>::max();
+          range_normalized * (max_range - min_range) + min_range;
 
       const auto altitude = r * d_altitude + min_angle;
       const auto azimuth = c * d_azimuth;

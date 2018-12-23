@@ -26,7 +26,7 @@ class Cloud2RangeNode {
   int rpm_;
   int sample_freq_;
   double min_angle_, max_angle_;
-  double max_range_;
+  double min_range_, max_range_;
 
   double d_azimuth_, d_altitude_;
   int n_cols_;
@@ -52,15 +52,17 @@ Cloud2RangeNode::Cloud2RangeNode(const ros::NodeHandle& pnh)
   max_angle_ = pnh_.param("max_angle", 0.0);
   ROS_ASSERT(min_angle_ < max_angle_);
 
+  min_range_ = pnh_.param("min_range", 0.0);
   max_range_ = pnh_.param("max_range", 0.0);
-  ROS_ASSERT(max_range_ > 0.0);
+  ROS_ASSERT(min_range_ < max_range_ && min_range_ >= 0.0);
 
   const auto model = pnh_.param<std::string>("model", "");
   ROS_INFO("lidar model: %s", model.c_str());
 
-  ROS_INFO("n_beams: %d, rpm: %d, angle(deg): [%0.2f, %0.2f], max range: %0.2f",
-           n_beams_, rpm_, Deg_Rad(min_angle_), Deg_Rad(max_angle_),
-           max_range_);
+  ROS_INFO(
+      "n_beams: %d, rpm: %d, angle(deg): [%0.2f, %0.2f], range: [%0.2f, %0.2f]",
+      n_beams_, rpm_, Deg_Rad(min_angle_), Deg_Rad(max_angle_), min_range_,
+      max_range_);
 
   n_cols_ = sample_freq_ * 60 / rpm_;
   ROS_INFO("range image shape (%d, %d)", n_beams_, n_cols_);
@@ -76,9 +78,10 @@ Cloud2RangeNode::Cloud2RangeNode(const ros::NodeHandle& pnh)
   cinfo_.distortion_model = model;
   cinfo_.K[0] = min_angle_;
   cinfo_.K[1] = max_angle_;
-  cinfo_.K[2] = max_range_;
-  cinfo_.K[3] = d_azimuth_;
-  cinfo_.K[4] = d_altitude_;
+  cinfo_.K[2] = min_range_;
+  cinfo_.K[3] = max_range_;
+  cinfo_.K[4] = d_azimuth_;
+  cinfo_.K[5] = d_altitude_;
 }
 
 void Cloud2RangeNode::CloudCb(
@@ -104,8 +107,17 @@ void Cloud2RangeNode::CloudCb(
     ROS_ASSERT(row >= 0 && row < n_beams_);
     ROS_ASSERT(col >= 0 && col < n_cols_);
 
+    if (range < min_range_ || range > max_range_) {
+      // skip invalid range
+      continue;
+    }
+
+    // normalize range to [0, 1]
+    const double range_normalized =
+        (range - min_range_) / (max_range_ - min_range_);
+
     range_image.at<ushort>(row, col) =
-        std::min(range / max_range_, 1.0) * std::numeric_limits<ushort>::max();
+        range_normalized * std::numeric_limits<ushort>::max();
   }
 
   ROS_DEBUG("num points %zu, num pixels %d", cloud.size(),
