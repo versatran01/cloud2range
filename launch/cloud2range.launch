@@ -1,0 +1,9 @@
+<launch>
+    <arg name="laser" default="/"/>
+    <arg name="cloud" default="velodyne_points"/>
+
+    <node pkg="cloud2range" type="cloud2range_node" name="cloud2range" output="screen">
+        <remap from="~cloud" to="/$(arg laser)/$(arg cloud)"/>
+        <remap from="~range" to="/$(arg laser)/range"/>
+    </node>
+</launch>

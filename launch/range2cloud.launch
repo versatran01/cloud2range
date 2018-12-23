@@ -1,0 +1,7 @@
+<launch>
+    <arg name="laser" default="/"/>
+
+    <node pkg="cloud2range" type="range2cloud_node" name="range2cloud" output="screen">
+        <remap from="~range" to="/$(arg laser)/range"/>
+    </node>
+</launch>
