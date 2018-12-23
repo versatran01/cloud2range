@@ -1,4 +1,3 @@
-#include "range2cloud_node.h"
 #include "utils.h"
 
 #include <cv_bridge/cv_bridge.h>
@@ -6,13 +5,29 @@
 #include <pcl_ros/point_cloud.h>
 
 namespace cloud2range {
-using namespace sensor_msgs;
+
+class Range2CloudNode {
+ public:
+  explicit Range2CloudNode(const ros::NodeHandle& pnh);
+
+  void ImageCb(const sensor_msgs::ImageConstPtr& image_msg);
+
+ private:
+  ros::NodeHandle pnh_;
+  ros::Subscriber sub_image_;
+  ros::Publisher pub_cloud_;
+
+  size_t rpm_;
+  double max_range_;
+  double min_angle_, max_angle_;
+};
 
 using PointT = pcl::PointXYZ;
 using CloudT = pcl::PointCloud<PointT>;
 
-Range2CloudNode::Range2CloudNode(const ros::NodeHandle &pnh) : pnh_(pnh) {
-  sub_image_ = pnh_.subscribe("range", 1, &Range2CloudNode::ImageCb, this);
+Range2CloudNode::Range2CloudNode(const ros::NodeHandle& pnh) : pnh_(pnh) {
+  sub_image_ =
+      pnh_.subscribe("range/image", 1, &Range2CloudNode::ImageCb, this);
   pub_cloud_ = pnh_.advertise<CloudT>("cloud2", 1);
 
   max_range_ = 100;
@@ -21,11 +36,11 @@ Range2CloudNode::Range2CloudNode(const ros::NodeHandle &pnh) : pnh_(pnh) {
   rpm_ = 600;
 }
 
-void Range2CloudNode::ImageCb(const ImageConstPtr &image_msg) {
+void Range2CloudNode::ImageCb(const sensor_msgs::ImageConstPtr& image_msg) {
   cv_bridge::CvImageConstPtr cv_ptr;
   try {
     cv_ptr = cv_bridge::toCvShare(image_msg);
-  } catch (cv_bridge::Exception &e) {
+  } catch (cv_bridge::Exception& e) {
     ROS_ERROR("cv_bridge exception: %s", e.what());
     return;
   }
@@ -71,3 +86,11 @@ void Range2CloudNode::ImageCb(const ImageConstPtr &image_msg) {
 }
 
 }  // namespace cloud2range
+
+int main(int argc, char** argv) {
+  ros::init(argc, argv, "range2cloud");
+
+  cloud2range::Range2CloudNode node(ros::NodeHandle("~"));
+
+  ros::spin();
+}

@@ -1,9 +1,17 @@
 <launch>
+    <!-- model of lidar -->
+    <arg name="model" default="vlp16"/>
+    <!-- namespace of lidar -->
     <arg name="laser" default="/"/>
+    <!-- topic name of pointcloud -->
     <arg name="cloud" default="velodyne_points"/>
 
     <node pkg="cloud2range" type="cloud2range_node" name="cloud2range" output="screen">
+        <rosparam command="load" file="$(find cloud2range)/launch/vlp16.yaml"/>
+
         <remap from="~cloud" to="/$(arg laser)/$(arg cloud)"/>
-        <remap from="~range" to="/$(arg laser)/range"/>
+
+        <remap from="~range/image" to="/$(arg laser)/range/image_raw"/>
+        <remap from="~range/camera_info" to="/$(arg laser)/range/camera_info"/>
     </node>
 </launch>

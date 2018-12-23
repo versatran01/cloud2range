@@ -2,6 +2,7 @@
     <arg name="laser" default="/"/>
 
     <node pkg="cloud2range" type="range2cloud_node" name="range2cloud" output="screen">
-        <remap from="~range" to="/$(arg laser)/range"/>
+        <remap from="~range/image" to="/$(arg laser)/range/image_raw"/>
+        <remap from="~range/camera_info" to="/$(arg laser)/range/camera_info"/>
     </node>
 </launch>

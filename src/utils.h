@@ -18,8 +18,6 @@ static constexpr double PointAltitude(double x, double y, double z) {
  */
 template <typename PointT>
 double PointAltitude(const PointT &point) {
-  BOOST_MPL_ASSERT_MSG((pcl::traits::has_xyz<PointT>::value),
-                       POINT_TYPE_SHOULD_HAVE_XYZ_FIELD, (PointT));
   return PointAltitude(point.x, point.y, point.z);
 }
 
@@ -37,8 +35,6 @@ static constexpr double PointAzimuth(double x, double y) {
  */
 template <typename PointT>
 double PointAzimuth(const PointT &point) {
-  BOOST_MPL_ASSERT_MSG((pcl::traits::has_xyz<PointT>::value),
-                       POINT_TYPE_SHOULD_HAVE_XYZ_FIELD, (PointT));
   return PointAzimuth(point.x, point.y);
 }
 
@@ -48,8 +44,6 @@ static constexpr double PointRange(double x, double y, double z) {
 
 template <typename PointT>
 double PointRange(const PointT &point) {
-  BOOST_MPL_ASSERT_MSG((pcl::traits::has_xyz<PointT>::value),
-                       POINT_TYPE_SHOULD_HAVE_XYZ_FIELD, (PointT));
   return PointRange(point.x, point.y, point.z);
 }
 
@@ -60,11 +54,11 @@ double PointRange(const PointT &point) {
  * @param angle_range range of beam angles
  * @return n in [0, n_rings]
  */
-static constexpr size_t Altitude2Row(double altitude, size_t n_beams,
-                                     double lower, double upper) {
-  const double factor = (n_beams - 1) / (upper - lower);
+static constexpr int Altitude2Row(double altitude, int n_beams, double lower,
+                                  double upper) {
+  const auto factor = (n_beams - 1) / (upper - lower);
   // int conversion round to zero so add 0.5
-  return static_cast<size_t>((altitude - lower) * factor + 0.5);
+  return static_cast<int>((altitude - lower) * factor + 0.5);
 }
 
 /// Degree from Radian
