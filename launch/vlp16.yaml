@@ -1,5 +1,5 @@
 n_beams: 16
-rpm: 600
+rpm: 300
 sample_freq: 18000 
 min_angle: deg(-15)
 max_angle: deg(15)
