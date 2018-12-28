@@ -96,28 +96,26 @@ void Cloud2RangeNode::CloudCb(
     // calculate altitude and azimuth and put into range image
     const auto& point = cloud[i];
     const auto range = PointRange(point);
-    const auto altitude = PointAltitude(point);
-    const auto azimuth = PointAzimuth(point);
-
-    const int row = (altitude - min_angle_) / d_altitude_ + 0.5;
-    // const int col = static_cast<int>(azimuth / d_azimuth_ + 0.5) % n_cols_;
-    // int round towards zero
-    const int col = azimuth / d_azimuth_ + 0.5;
-    // make sure valid
-    ROS_ASSERT(row >= 0 && row < n_beams_);
-    ROS_ASSERT(col >= 0 && col < n_cols_);
-
     if (range < min_range_ || range > max_range_) {
       // skip invalid range
       continue;
     }
 
+    const auto azimuth = PointAzimuth(point);
+    const auto altitude = PointAltitude(point);
+
+    const int row = (altitude - min_angle_) / d_altitude_ + 0.5;
+    // int round towards zero
+    const int col = static_cast<int>(azimuth / d_azimuth_) % n_cols_;
+    // make sure valid
+    ROS_ASSERT(row >= 0 && row < n_beams_);
+    ROS_ASSERT(col >= 0 && col < n_cols_);
+
     // normalize range to [0, 1]
-    const double range_normalized =
-        (range - min_range_) / (max_range_ - min_range_);
+    const double range_norm = (range - min_range_) / (max_range_ - min_range_);
 
     range_image.at<ushort>(row, col) =
-        range_normalized * std::numeric_limits<ushort>::max();
+        range_norm * (std::numeric_limits<ushort>::max() - 1) + 1;
   }
 
   ROS_DEBUG("num points %zu, num pixels %d", cloud.size(),

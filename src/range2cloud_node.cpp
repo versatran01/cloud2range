@@ -68,10 +68,9 @@ void Range2CloudNode::CameraCb(
         continue;
       }
 
-      const double range_normalized = static_cast<double>(range_encoded) /
-                                      std::numeric_limits<ushort>::max();
-      const double range =
-          range_normalized * (max_range - min_range) + min_range;
+      const double range_norm = static_cast<double>(range_encoded - 1) /
+                                (std::numeric_limits<ushort>::max() - 1);
+      const double range = range_norm * (max_range - min_range) + min_range;
 
       const auto altitude = r * d_altitude + min_angle;
       const auto azimuth = c * d_azimuth;
